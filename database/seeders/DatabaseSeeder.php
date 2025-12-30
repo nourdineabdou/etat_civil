@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Database\Seeders\RhtCongeAgentSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -22,5 +23,8 @@ class DatabaseSeeder extends Seeder
             'email' => 'test@example.com',
             "password" => bcrypt('password'), // mot de passe par défaut
         ]);
+
+        // Import RhtCongeAgent data if SQL file is present
+        $this->call(RhtCongeAgentSeeder::class);
     }
 }

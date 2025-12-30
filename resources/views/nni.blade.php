@@ -37,7 +37,6 @@
      <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
-
       <main class="panel">
         <div class="glass-card">
             <div class="row g-4">
@@ -69,23 +68,27 @@
 
                     <div class="mt-4">
                         <div class="stat-card">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <div class="small-muted">Total recherches</div>
-                                    <div id="statsTotal" class="h4 mb-0">0</div>
-                                </div>
-                                <div>
-                                    <div class="small-muted">NNI uniques</div>
-                                    <div id="statsUnique" class="h4 mb-0">0</div>
-                                </div>
-                            </div>
                             <div class="mt-3">
+                                <div class="row g-2 mb-3">
+                                    <div class="col-4 text-center">
+                                        <div class="small-muted">Cumul mois courant</div>
+                                        <div id="statsMonthTotal" class="h5 mb-0">0</div>
+                                    </div>
+                                    <div class="col-4 text-center">
+                                        <div class="small-muted">Cumul semaine</div>
+                                        <div id="statsWeekTotal" class="h5 mb-0">0</div>
+                                    </div>
+                                    <div class="col-4 text-center">
+                                        <div class="small-muted">Aujourd'hui</div>
+                                        <div id="statsTodayCount" class="h5 mb-0">0</div>
+                                    </div>
+                                </div>
+
                                 <canvas id="placesChart" height="130"></canvas>
                             </div>
                         </div>
                     </div>
                 </div>
-
                 <div class="col-12 col-lg-8">
                     <div class="row g-3">
                         <div class="col-12">
@@ -137,10 +140,24 @@
                         <div class="col-12">
                             <div class="glass-card p-3">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <h5 class="mb-0">Répartition par année</h5>
-                                    <div class="small-muted">Dernières années</div>
+                                    <h5 class="mb-0">Répartition par mois</h5>
+                                    <div class="small-muted">Derniers mois</div>
                                 </div>
-                                <canvas id="yearsChart" height="120"></canvas>
+                                <canvas id="last4MonthsChart" height="120"></canvas>
+                                <div class="row g-2 mt-3">
+                                    <div class="col-12 col-md-4">
+                                        <div class="small-muted">Cumulé par jour (mois en cours)</div>
+                                        <canvas id="dailyCumulativeChart" height="120"></canvas>
+                                    </div>
+                                    <div class="col-12 col-md-4">
+                                        <div class="small-muted">Cumulé par semaine (mois en cours)</div>
+                                        <canvas id="weeklyCumulativeChart" height="120"></canvas>
+                                    </div>
+                                    <div class="col-12 col-md-4">
+                                        <div class="small-muted">Cumulé par mois (année en cours)</div>
+                                        <canvas id="monthlyCumulativeChart" height="120"></canvas>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -161,20 +178,64 @@
 
         let placesChart = null;
         let yearsChart = null;
+        let last4MonthsChart = null;
+        let dailyCumulativeChart = null;
+        let weeklyCumulativeChart = null;
+        let monthlyCumulativeChart = null;
 
         function initCharts(){
+            // Places doughnut
             const placesCtx = document.getElementById('placesChart').getContext('2d');
             placesChart = new Chart(placesCtx, {
                 type: 'doughnut',
-                data: { labels: [], datasets: [{ data: [], backgroundColor: ['#7c3aed','#60a5fa','#34d399','#f97316','#f43f5e'] }] },
-                options: { plugins:{legend:{labels:{color:'#fff'}}} }
+                data: {
+                    labels: [],
+                    datasets: [{ data: [], backgroundColor: ['#7c3aed','#60a5fa','#34d399','#f97316','#f43f5e'] }]
+                },
+                options: {
+                    plugins: { legend: { labels: { color: '#fff' } } }
+                }
             });
 
-            const yearsCtx = document.getElementById('yearsChart').getContext('2d');
-            yearsChart = new Chart(yearsCtx, {
+            // Last N months: bar for monthly counts + line for cumulative
+            const last4Ctx = document.getElementById('last4MonthsChart').getContext('2d');
+            last4MonthsChart = new Chart(last4Ctx, {
                 type: 'bar',
-                data: { labels: [], datasets: [{ label: 'Par année', data: [], backgroundColor: '#7c3aed' }] },
-                options: { scales:{x:{ticks:{color:'#cbd5e1'}},y:{ticks:{color:'#cbd5e1'}}}, plugins:{legend:{display:false}} }
+                data: {
+                    labels: [],
+                    datasets: [
+                        { label: 'Par mois', type: 'bar', data: [], backgroundColor: '#60a5fa' },
+                        { label: 'Cumulé', type: 'line', data: [], borderColor: '#7c3aed', backgroundColor: 'rgba(124,58,237,0.08)', tension: 0.25, fill: false }
+                    ]
+                },
+                options: {
+                    scales: { x: { ticks: { color: '#cbd5e1' } }, y: { ticks: { color: '#cbd5e1' } } },
+                    plugins: { legend: { labels: { color: '#fff' } } }
+                }
+            });
+
+            // Daily cumulative
+            const dailyCtx = document.getElementById('dailyCumulativeChart').getContext('2d');
+            dailyCumulativeChart = new Chart(dailyCtx, {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Cumulé (jours)', data: [], borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,0.06)', tension: 0.25 }] },
+                options: { plugins: { legend: { labels: { color: '#fff' } } }, scales: { x: { ticks: { color: '#cbd5e1' } }, y: { ticks: { color: '#cbd5e1' } } } }
+            });
+
+            // Weekly cumulative
+            const weeklyCtx = document.getElementById('weeklyCumulativeChart').getContext('2d');
+            weeklyCumulativeChart = new Chart(weeklyCtx, {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Cumulé (semaines)', data: [], borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.06)', tension: 0.25 }] },
+                options: { plugins: { legend: { labels: { color: '#fff' } } }, scales: { x: { ticks: { color: '#cbd5e1' } }, y: { ticks: { color: '#cbd5e1' } } } }
+            });
+
+            // Monthly cumulative
+            const monthlyCtx = document.getElementById('monthlyCumulativeChart').getContext('2d');
+            monthlyCumulativeChart = new Chart(monthlyCtx, {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Cumulé (mois)', data: [], borderColor: '#f43f5e', backgroundColor: 'rgba(244,63,94,0.06)', tension: 0.25 }] },
+                options: { plugins: { legend: { labels: { color: '#fff' } } }, scales: { x: { ticks: { color: '#cbd5e1' } }, y: { ticks: { color: '#cbd5e1' } } } }
             });
         }
 
@@ -187,26 +248,40 @@
             }catch(e){ console.error(e); return null; }
         }
 
+        async function fetchCharts(){
+            try{
+                const res = await fetch('/nni/charts-data', { headers: { 'Accept': 'application/json' } });
+                if(!res.ok) return null;
+                return await res.json();
+            }catch(e){ console.error(e); return null; }
+        }
+
         function updateStatsUI(stats){
             if(!stats) return;
-            document.getElementById('statsTotal').textContent = stats.total_lookups ?? 0;
-            document.getElementById('statsUnique').textContent = stats.unique_nnis ?? 0;
+                const statsTotalEl = document.getElementById('statsTotal');
+                const statsUniqueEl = document.getElementById('statsUnique');
+                if (statsTotalEl) statsTotalEl.textContent = stats.total_lookups ?? 0;
+                if (statsUniqueEl) statsUniqueEl.textContent = stats.unique_nnis ?? 0;
 
-            // places chart
-            const places = stats.top_places || {};
-            const placeLabels = Object.keys(places);
-            const placeValues = Object.values(places);
-            placesChart.data.labels = placeLabels;
-            placesChart.data.datasets[0].data = placeValues;
-            placesChart.update();
+                // places chart
+                const places = stats.top_places || {};
+                const placeLabels = Object.keys(places);
+                const placeValues = Object.values(places);
+                if (placesChart) {
+                    placesChart.data.labels = placeLabels;
+                    placesChart.data.datasets[0].data = placeValues;
+                    placesChart.update();
+                }
 
-            // years chart
-            const years = stats.by_year || {};
-            const yearLabels = Object.keys(years);
-            const yearValues = Object.values(years);
-            yearsChart.data.labels = yearLabels;
-            yearsChart.data.datasets[0].data = yearValues;
-            yearsChart.update();
+                // years chart (guarded)
+                const years = stats.by_year || {};
+                const yearLabels = Object.keys(years);
+                const yearValues = Object.values(years);
+                if (yearsChart && yearsChart.data && yearsChart.data.datasets && yearsChart.data.datasets[0]) {
+                    yearsChart.data.labels = yearLabels;
+                    yearsChart.data.datasets[0].data = yearValues;
+                    yearsChart.update();
+                }
         }
 
         function showResult(data){
@@ -237,6 +312,39 @@
             const stats = await fetchStats();
             updateStatsUI(stats);
 
+            // fetch and render charts data
+            const charts = await fetchCharts();
+            if (charts && charts.last4Months) {
+                last4MonthsChart.data.labels = charts.last4Months.labels || [];
+                last4MonthsChart.data.datasets[0].data = charts.last4Months.counts || [];
+                last4MonthsChart.data.datasets[1].data = charts.last4Months.cumulative || [];
+                last4MonthsChart.update();
+            }
+            if (charts && charts.current) {
+                const d = charts.current.daily || {labels:[], cumulative:[]};
+                dailyCumulativeChart.data.labels = d.labels; dailyCumulativeChart.data.datasets[0].data = d.cumulative; dailyCumulativeChart.update();
+
+                const w = charts.current.weekly || {labels:[], cumulative:[]};
+                weeklyCumulativeChart.data.labels = w.labels; weeklyCumulativeChart.data.datasets[0].data = w.cumulative; weeklyCumulativeChart.update();
+
+                const m = charts.current.monthly || {labels:[], cumulative:[]};
+                monthlyCumulativeChart.data.labels = m.labels; monthlyCumulativeChart.data.datasets[0].data = m.cumulative; monthlyCumulativeChart.update();
+            }
+
+            if (charts && charts.summary) {
+                document.getElementById('statsMonthTotal').textContent = charts.summary.month_total ?? 0;
+                document.getElementById('statsWeekTotal').textContent = charts.summary.week_total ?? 0;
+                document.getElementById('statsTodayCount').textContent = charts.summary.today_total ?? 0;
+                // Also use the donut chart to show these three summary numbers
+                try {
+                    const donutLabels = ['Mois', 'Semaine', "Aujourd'hui"];
+                    const donutData = [charts.summary.month_total || 0, charts.summary.week_total || 0, charts.summary.today_total || 0];
+                    placesChart.data.labels = donutLabels;
+                    placesChart.data.datasets[0].data = donutData;
+                    placesChart.update();
+                } catch (e) { console.error('Failed updating donut with summary', e); }
+            }
+
             // attach logout handler
             const logoutBtn = document.getElementById('logoutBtn');
             if (logoutBtn) {
@@ -265,98 +373,8 @@
         });
     </script>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
-<!-- Debug helper: floating button to list and remove overlays -->
-<style>
-    #debugOverlayBtn{position:fixed;right:18px;bottom:18px;z-index:2147483647;background:#111827;color:#fff;border:0;border-radius:10px;padding:10px 12px;box-shadow:0 6px 20px rgba(2,6,23,0.6);cursor:pointer}
-    #debugOverlayModal{position:fixed;right:18px;bottom:70px;z-index:2147483647;min-width:320px;max-width:420px;background:#fff;color:#000;border-radius:10px;padding:12px;box-shadow:0 12px 40px rgba(2,6,23,0.4);display:none}
-    #debugOverlayModal h6{margin:0 0 6px 0}
-    #debugOverlayList{max-height:300px;overflow:auto;margin:6px 0;padding:0;list-style:none}
-    #debugOverlayList li{padding:6px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;gap:8px}
-    #debugOverlayList button{flex:0 0 auto}
-</style>
-<button id="debugOverlayBtn">Debug overlays</button>
-<div id="debugOverlayModal" aria-hidden="true">
-    <h6>Overlays détectés</h6>
-    <div class="small-muted">Éléments fixes/full-screen / z-index élevés</div>
-    <ul id="debugOverlayList"></ul>
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
-        <button id="debugRefreshBtn" class="btn btn-sm btn-secondary">Rafraîchir</button>
-        <button id="debugCloseBtn" class="btn btn-sm btn-outline-secondary">Fermer</button>
-    </div>
-</div>
-<script>
-    function findOverlayCandidates(){
-        const candidates = [];
-        document.querySelectorAll('*').forEach(el => {
-            try{
-                const s = getComputedStyle(el);
-                const rect = el.getBoundingClientRect();
-                const big = (rect.width >= window.innerWidth - 2 && rect.height >= window.innerHeight - 2);
-                const fixedFull = s.position === 'fixed' && (s.top === '0px' || Math.abs(rect.top) < 2) && (s.left === '0px' || Math.abs(rect.left) < 2) && big;
-                const highZ = Number(s.zIndex) && Number(s.zIndex) > 1000;
-                const semiOpaque = (s.backgroundColor && (s.backgroundColor.startsWith('rgba') || s.opacity < 0.95));
-                if (fixedFull || highZ || semiOpaque) {
-                    candidates.push({el, rect, z: s.zIndex || 'auto', pos: s.position, bg: s.backgroundColor, opacity: s.opacity});
-                }
-            }catch(e){}
-        });
-        return candidates;
-    }
-
-    function selectorFor(el){
-        if(el.id) return `#${el.id}`;
-        if(el.className && typeof el.className === 'string') return `${el.tagName.toLowerCase()}.${el.className.trim().split(/\s+/).join('.')}`;
-        return el.tagName.toLowerCase();
-    }
-
-    function renderOverlayList(){
-        const list = document.getElementById('debugOverlayList');
-        list.innerHTML = '';
-        const items = findOverlayCandidates();
-        if(items.length===0){ list.innerHTML = '<li>Aucun overlay détecté</li>'; return; }
-        items.forEach((it, idx) => {
-            const li = document.createElement('li');
-            const info = document.createElement('div');
-            info.innerHTML = `<strong>${selectorFor(it.el)}</strong><div class="small">z-index: ${it.z} pos:${it.pos} bg:${it.bg} opacity:${it.opacity}</div>`;
-            const btns = document.createElement('div');
-            const remove = document.createElement('button'); remove.className='btn btn-sm btn-danger'; remove.textContent='Supprimer';
-            remove.addEventListener('click', ()=>{ try{ it.el.remove(); renderOverlayList(); }catch(e){ alert('Impossible de supprimer'); } });
-            const highlight = document.createElement('button'); highlight.className='btn btn-sm btn-outline-secondary ms-2'; highlight.textContent='Surbrillance';
-            highlight.addEventListener('click', ()=>{ it.el.style.outline='4px solid red'; it.el.scrollIntoView({behavior:'smooth',block:'center'}); });
-            btns.appendChild(remove); btns.appendChild(highlight);
-            li.appendChild(info); li.appendChild(btns); list.appendChild(li);
-        });
-    }
-
-    document.getElementById('debugOverlayBtn').addEventListener('click', ()=>{
-        const modal = document.getElementById('debugOverlayModal');
-        modal.style.display = modal.style.display==='block' ? 'none' : 'block';
-        if(modal.style.display==='block') renderOverlayList();
-    });
-    document.getElementById('debugRefreshBtn').addEventListener('click', renderOverlayList);
-    document.getElementById('debugCloseBtn').addEventListener('click', ()=>{ document.getElementById('debugOverlayModal').style.display='none'; });
-
-    // Keyboard shortcuts: Ctrl+Alt+D -> toggle debug panel, Ctrl+Alt+R -> remove first detected overlay
-    document.addEventListener('keydown', (e) => {
-        if (e.ctrlKey && e.altKey && e.code === 'KeyD') {
-            e.preventDefault();
-            const btn = document.getElementById('debugOverlayBtn');
-            if (btn) btn.click();
-        }
-        if (e.ctrlKey && e.altKey && e.code === 'KeyR') {
-            e.preventDefault();
-            // remove first candidate
-            const items = findOverlayCandidates();
-            if (items.length > 0) {
-                try{ items[0].el.remove(); alert('Premier overlay supprimé'); }catch(e){ alert('Impossible de supprimer'); }
-            } else {
-                alert('Aucun overlay détecté');
-            }
-        }
-    });
-</script>
-</body>
-</html>
-</body>
-</html>
+    <!-- Debug overlay tools temporarily disabled to avoid JS parse errors.
+         To re-enable, restore the debug button, modal and associated scripts.
+     -->
+    </body>
+    </html>

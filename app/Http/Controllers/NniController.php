@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Models\NniSearch;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class NniController extends Controller
 {
@@ -11,6 +14,7 @@ class NniController extends Controller
     {
         return view('nni');
     }
+ /// je veux crrer un
 
     public function lookup(Request $request)
     {
@@ -78,7 +82,22 @@ class NniController extends Controller
             ], 500);
         }
 
-        // Save to session history
+        // Save to database (non-blocking)
+        try {
+            NniSearch::create([
+                'nni' => $data['nni'],
+                'nom_fr' => $data['nom_fr'] ?? null,
+                'prenom_fr' => $data['prenom_fr'] ?? null,
+                'date_naissance' => $data['date_naissance'] ?: null,
+                'lieu_naissance_fr' => $data['lieu_naissance_fr'] ?? null,
+                'ip' => $request->ip(),
+                'user_id' => Auth::id(),
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Failed to save NNI search: ' . $e->getMessage());
+        }
+
+        // Save to session history (kept for compatibility)
         $entry = [
             'nni' => $data['nni'],
             'nom_fr' => $data['nom_fr'],
@@ -109,12 +128,21 @@ class NniController extends Controller
 
     public function stats()
     {
-        $history = session()->get('nni_lookups', []);
+        // Read from DB and map to the same structure used by computeStats()
+        $records = NniSearch::orderBy('created_at', 'desc')->get();
 
-        if (empty($history)) {
-            // seed some sample data so the user can see stats immediately
+        if ($records->isEmpty()) {
             $history = $this->seedSampleData();
-            session()->put('nni_lookups', $history);
+        } else {
+            $history = $records->map(function ($r) {
+                return [
+                    'nni' => $r->nni,
+                    'nom_fr' => $r->nom_fr,
+                    'date_naissance' => $r->date_naissance ? $r->date_naissance->toDateString() : '',
+                    'lieu_naissance_fr' => $r->lieu_naissance_fr,
+                    'created_at' => $r->created_at->toDateTimeString(),
+                ];
+            })->toArray();
         }
 
         $stats = $this->computeStats($history);
@@ -200,4 +228,112 @@ class NniController extends Controller
 
         return redirect('/login');
     }
+
+    /**
+     * Return JSON data for charts:
+     * - last4Months: labels, counts, cumulative
+     * - current: daily/weekly/monthly cumulative series
+     */
+    public function chartsData()
+    {
+        $today = Carbon::today();
+
+        // Last 4 rolling months (including current)
+        $last4Labels = [];
+        $last4Counts = [];
+        $running = 0;
+        $last4Cumulative = [];
+        for ($i = 3; $i >= 0; $i--) {
+            $m = $today->copy()->subMonths($i);
+            $label = $m->translatedFormat('M Y');
+            $count = NniSearch::whereYear('created_at', $m->year)
+                ->whereMonth('created_at', $m->month)
+                ->count();
+            $running += $count;
+            $last4Labels[] = $label;
+            $last4Counts[] = $count;
+            $last4Cumulative[] = $running;
+        }
+
+        // Current month: daily cumulative
+        $startMonth = $today->copy()->startOfMonth();
+        $dailyLabels = [];
+        $dailyCumulative = [];
+        $running = 0;
+        for ($d = $startMonth->copy(); $d->lte($today); $d->addDay()) {
+            $label = $d->format('d/m');
+            $cnt = NniSearch::whereDate('created_at', $d->toDateString())->count();
+            $running += $cnt;
+            $dailyLabels[] = $label;
+            $dailyCumulative[] = $running;
+        }
+
+        // Current month: weekly cumulative (weeks intersecting current month)
+        $weekLabels = [];
+        $weekCumulative = [];
+        $running = 0;
+        $weekStart = $startMonth->copy()->startOfWeek();
+        while ($weekStart->lte($today)) {
+            $weekEnd = $weekStart->copy()->endOfWeek();
+            $periodStart = $weekStart->copy()->max($startMonth);
+            $periodEnd = $weekEnd->copy()->min($today);
+            if ($periodStart->gt($periodEnd)) { $weekStart->addWeek(); continue; }
+            $label = $periodStart->format('d/m') . '—' . $periodEnd->format('d/m');
+            $cnt = NniSearch::whereBetween('created_at', [$periodStart->startOfDay()->toDateTimeString(), $periodEnd->endOfDay()->toDateTimeString()])->count();
+            $running += $cnt;
+            $weekLabels[] = $label;
+            $weekCumulative[] = $running;
+            $weekStart->addWeek();
+        }
+
+        // Months of current year up to current month: cumulative
+        $monthLabels = [];
+        $monthCumulative = [];
+        $running = 0;
+        for ($m = 1; $m <= intval($today->month); $m++) {
+            $cnt = NniSearch::whereYear('created_at', $today->year)->whereMonth('created_at', $m)->count();
+            $running += $cnt;
+            $monthLabels[] = Carbon::create($today->year, $m, 1)->translatedFormat('M');
+            $monthCumulative[] = $running;
+        }
+
+        return response()->json([
+            'last4Months' => [
+                'labels' => $last4Labels,
+                'counts' => $last4Counts,
+                'cumulative' => $last4Cumulative,
+            ],
+            'current' => [
+                'daily' => ['labels' => $dailyLabels, 'cumulative' => $dailyCumulative],
+                'weekly' => ['labels' => $weekLabels, 'cumulative' => $weekCumulative],
+                'monthly' => ['labels' => $monthLabels, 'cumulative' => $monthCumulative],
+            ],
+            'summary' => [
+                'month_total' => NniSearch::whereYear('created_at', $today->year)->whereMonth('created_at', $today->month)->count(),
+                'week_total' => NniSearch::whereBetween('created_at', [$today->copy()->startOfWeek()->startOfDay()->toDateTimeString(), $today->endOfDay()->toDateTimeString()])->count(),
+                'today_total' => NniSearch::whereDate('created_at', $today->toDateString())->count(),
+            ],
+        ]);
+    }
+
+    //  fonction pour importer les donnes  partir d'un fichier excel
+    // en utilisant RhtCongeAgentImporter
+    // public function importRhtCongeAgent($path ="C:\Users\Administrateur\Downloads\conges a inserer 261225.xlsx")
+    // {
+    //     $importer = new \App\Imports\RhtCongeAgentImporter();
+
+    //     try {
+    //         $count = $importer->importExcel($path, true);
+
+    //         return response()->json([
+    //             'success' => true,
+    //             'message' => "Importation réussie. Nombre d'enregistrements insérés: {$count}"
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'Erreur lors de l\'importation: ' . $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
 }
