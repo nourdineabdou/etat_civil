@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Recherche NNI — Mon Projet</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="{{ asset('vendor/css2.css') }}" rel="stylesheet">
+    <link href="{{ asset('vendor/bootstrap.min.css') }}" rel="stylesheet" crossorigin="anonymous">
+        <link href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.css') }}" rel="stylesheet">
      <style>
         :root{--glass: rgba(255,255,255,0.06); --accent:#7c3aed}
         body{font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Arial;min-height:100vh;background:linear-gradient(135deg,#07102a 0%,#07263a 60%,#0b1630 100%);color:#e6eef8;padding:32px}
@@ -34,7 +34,7 @@
         /* Ensure main panel is on top */
         .panel { position: relative; z-index: 2147483647; }
     </style>
-     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
+     <script src="{{ asset('vendor/chart.umd.min.js') }}"></script>
 </head>
 <body>
       <main class="panel">

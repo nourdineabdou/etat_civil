@@ -1,0 +1,32 @@
+/*
+ * Bootstrap Icons (local placeholder)
+ * NOTE: This is a minimal placeholder CSS that declares the font files.
+ * Replace this file with the full `bootstrap-icons.css` you downloaded
+ * if you need the complete set of icon class mappings.
+ */
+
+@font-face {
+  font-family: 'bootstrap-icons';
+  src: url('fonts/bootstrap-icons.woff2') format('woff2'),
+       url('fonts/bootstrap-icons.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}
+
+.bi,
+[class^="bi-"]
+{
+  display: inline-block;
+  font-family: 'bootstrap-icons' !important;
+  font-style: normal;
+  font-weight: normal !important;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+  vertical-align: -.125em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Full icon class -> content mapping omitted. Replace with real file if available. */
